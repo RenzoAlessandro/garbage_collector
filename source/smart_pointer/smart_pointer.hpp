@@ -2,6 +2,63 @@
 #ifndef SOURCE_SMART_POINTER_SMART_POINTER_HPP_
 #define SOURCE_SMART_POINTER_SMART_POINTER_HPP_
 #include <cstddef>
+#include <vector>
+#include <set>
+
+class Collectable {
+  
+public:
+  
+  Collectable() : gcRootCount(0), gcSequence(0) { }
+  virtual ~Collectable() { }
+  
+private:
+  
+  friend class Collector;
+
+  // conexiones según lo visto por el garbage collector
+  std::vector<Collectable*> gcConnections;
+  
+  // Cuántas veces se hace referencia a este nodo como raíz
+  int gcRootCount;
+
+  // Número de secuencia utilizado para determinar si el objeto 
+  // coleccionable ha sido visitado en la ronda actual de GC.
+  size_t gcSequence;
+};
+
+class Collector {
+  
+public:
+  static Collector& GetInstance();
+  void AddRoot(Collectable*);
+  void RemoveRoot(Collectable*);
+  void AddEdge(Collectable*, Collectable*);
+  void RemoveEdge(Collectable*, Collectable*);
+  void ProcessEvents();
+  void Collect();
+  
+private:
+  
+  Collector();
+
+  struct Event {
+    
+    enum Type {
+      AddRoot,
+      RemoveRoot,
+      Connect,
+      Disconnect
+    };
+    
+    Type type;
+    Collectable* a;
+    Collectable* b;
+    
+  };
+  
+};
+
 
 /*
  * Smart Pointer que implementa un tipo de estrategia por conteo de referencias.
@@ -14,6 +71,7 @@ class SmartPointer {
   Type *resource_;
 
  public:
+ SmartPointer() : resource_(0) { }
   /* Constructor: SmartPointer(Type* resource=NULL)
    * Uso: SmartPointer<string> myPtr(new string);
    *      SmartPointer<string> myPtr;
@@ -24,6 +82,7 @@ class SmartPointer {
    * recurso no administre ningún recurso.
    */
   explicit SmartPointer(Type *resource) :resource_(resource) {
+    _Retain();
   }
 
   /* Destructor: ~SmartPointer();
@@ -34,6 +93,7 @@ class SmartPointer {
    * al recurso.
    */
   ~SmartPointer() {
+    _Retain();
   }
 
   /* SmartPointer operadores de "des-referencia"(dereference)
@@ -42,8 +102,8 @@ class SmartPointer {
    * ------------------------------------------------------------
    * Permite al SmartPointer comportarse como si fuera un puntero.
    */
-  Type &operator*() const { return Type(0); }
-  Type *operator->() const { return nullptr; }
+  Type &operator*() const { return *resource_; }
+  Type *operator->() const { assert(resource_); return resource_; }
 
   /* Funciones de copia
    * Uso: SmartPointer<string> ptr=existingPointer;
@@ -54,6 +114,11 @@ class SmartPointer {
    * (deallocated).
    */
   SmartPointer &operator=(const SmartPointer &other) {
+    if(resource_ != other.resource_) {
+      _Release();
+      resource_ = other.resource_;
+      _Retain();
+    }
     return *this;
   }
   SmartPointer &operator=(Type *other) {
@@ -84,6 +149,96 @@ class SmartPointer {
    */
   void Detach() {
   }
+  void _Retain() {
+    if(resource_) {
+       Collector::GetInstance().AddRoot(resource_);
+    }
+  }
+  
+  void _Release() {
+    if(resource_) {
+       Collector::GetInstance().RemoveRoot(resource_);
+    }
+  }
+  
+
 };
+
+template<class Type>
+std::ostream& operator<<(std::ostream& out, const SmartPointer<Type>& p) {
+  return out << p.resource_;
+}
+
+template<typename Type>
+class EdgePtr {
+  
+public:
+
+  EdgePtr(Collectable* owner) : _owner(owner), resource_(0) {
+    assert(owner);
+  }
+  
+  EdgePtr(Collectable* owner, const SmartPointer<Type>& other) : _owner(owner), resource_(other.resource_) {
+    assert(owner);
+    _Retain();
+  }
+  
+  ~EdgePtr() {
+  }
+  
+  EdgePtr& operator=(const EdgePtr& other) {
+    assert(_owner == other._owner);
+    if(resource_ != other.resource_) {
+      _Release();
+      resource_ = other.resource_;
+      _Retain();
+    }
+    return *this;
+  }
+  
+  template<class Type2>
+  EdgePtr& operator=(const SmartPointer<Type2>& other) {
+    if(resource_ != other.Get()) {
+      _Release();
+      resource_ = other.Get();
+      _Retain();
+    }
+    return *this;
+  }
+  
+  SmartPointer<Type> GetRootPtr() const { return SmartPointer<Type>(resource_); }
+  
+  operator bool() const { return resource_ != 0; }
+  
+  bool operator==(const EdgePtr& other) const {
+    return resource_ == other.resource_;
+  }
+  
+  bool operator!=(const EdgePtr& other) const {
+    return resource_ != other.resource_;
+  }
+  
+  bool operator<(const EdgePtr& other) const {
+    return resource_ < other.resource_;
+  }
+  
+private:
+  
+  void _Retain() {
+    if(resource_) {
+      Collector::GetInstance().AddEdge(_owner, resource_);
+    }
+  }
+  
+  void _Release() {
+    if(resource_) {
+      Collector::GetInstance().RemoveEdge(_owner, resource_);
+    }
+  }
+  
+  Collectable* _owner;
+  Type* resource_;
+  
+}; // clase EdgePtr
 
 #endif  // SOURCE_SMART_POINTER_SMART_POINTER_HPP_

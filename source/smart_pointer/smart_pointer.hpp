@@ -6,7 +6,6 @@
 #include <set>
 
 class Collectable {
-  
 public:
   Collectable() : gcRootCount(0), gcSequence(0) { }
   virtual ~Collectable() { }
@@ -213,19 +212,17 @@ public:
     return resource_ < other.resource_;
   }
 private:
-  
   void _Retain() {
     if(resource_) {
       Collector::GetInstance().AddEdge(_owner, resource_);
     }
   }
-  
   void _Release() {
     if(resource_) {
       Collector::GetInstance().RemoveEdge(_owner, resource_);
     }
   }
-  
+
   Collectable* _owner;
   Type* resource_;
   

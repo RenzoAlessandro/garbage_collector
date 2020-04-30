@@ -212,7 +212,6 @@ public:
   bool operator<(const EdgePtr& other) const {
     return resource_ < other.resource_;
   }
-  
 private:
   
   void _Retain() {

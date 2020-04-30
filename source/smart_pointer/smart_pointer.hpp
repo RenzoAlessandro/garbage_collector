@@ -8,27 +8,21 @@
 class Collectable {
   
 public:
-  
   Collectable() : gcRootCount(0), gcSequence(0) { }
   virtual ~Collectable() { }
   
 private:
-  
   friend class Collector;
-
   // conexiones según lo visto por el garbage collector
   std::vector<Collectable*> gcConnections;
-  
   // Cuántas veces se hace referencia a este nodo como raíz
   int gcRootCount;
-
   // Número de secuencia utilizado para determinar si el objeto 
   // coleccionable ha sido visitado en la ronda actual de GC.
   size_t gcSequence;
 };
 
 class Collector {
-  
 public:
   static Collector& GetInstance();
   void AddRoot(Collectable*);
@@ -43,20 +37,16 @@ private:
   Collector();
 
   struct Event {
-    
     enum Type {
       AddRoot,
       RemoveRoot,
       Connect,
       Disconnect
     };
-    
     Type type;
     Collectable* a;
     Collectable* b;
-    
   };
-  
 };
 
 
@@ -95,6 +85,7 @@ class SmartPointer {
   ~SmartPointer() {
     _Retain();
   }
+
 
   /* SmartPointer operadores de "des-referencia"(dereference)
    * Uso: cout << *myPtr << endl;
